@@ -11,14 +11,12 @@
 *.trs
 .*.sw*
 
-.deps
+.deps/
 
 .dirstamp
 
 .project
 .cproject
-
-!doc/Doxyfile.in
 
 /aclocal.m4
 /autom4te.cache
@@ -38,10 +36,11 @@ Makefile-pl
 config.status
 config.nice
 config.h
-doc/Doxyfile
-doc/html/
+
+doc/_build/html/api/
 doc/docbuild/
 doc/locale/pot
+doc/xml/
 
 MYMETA.*
 pm_to_blib
@@ -51,6 +50,7 @@ cmd/traffic_shell/traffic_shell
 cmd/traffic_cop/traffic_cop
 cmd/traffic_top/traffic_top
 cmd/traffic_manager/traffic_manager
+cmd/traffic_layout/traffic_layout
 
 lib/ts/ink_autoconf.h
 lib/ts/ink_config.h
@@ -68,7 +68,6 @@ lib/ts/test_freelist
 lib/ts/test_Map
 lib/ts/test_Vec
 lib/perl/lib/Apache/TS.pm
-
 
 iocore/net/test_certlookup
 iocore/aio/test_AIO
@@ -108,15 +107,9 @@ rc/trafficserver.xml
 rc/trafficserver.conf
 rc/trafficserver.service
 
-proxy/api/include/ts
+.libs/
 
-*/.libs
-*/*/.libs
-*/*/*/.libs
-*/*/*/*/.libs
-
-.svn
-*/.svn/
+.svn/
 
 tsxs
 

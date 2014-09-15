@@ -23,6 +23,7 @@
 
 #include "libts.h"
 #include "ink_sys_control.h"
+#include "ink_cap.h"
 
 #include "MgmtUtils.h"
 #include "WebMgmtUtils.h"
@@ -243,22 +244,6 @@ initSignalHandlers()
   sigaction(SIGCHLD, &sigChldHandler, NULL);
 }
 
-#if defined(linux)
-#include <sys/prctl.h>
-#endif
-static int
-setup_coredump()
-{
-#if defined(linux)
-#ifndef PR_SET_DUMPABLE
-#define PR_SET_DUMPABLE 4       /* Ugly, but we cannot compile with 2.2.x otherwise.
-                                   Should be removed when we compile only on 2.4.x */
-#endif
-  prctl(PR_SET_DUMPABLE, 1, 0, 0, 0);
-#endif  // linux check
-  return 0;
-}
-
 static void
 init_dirs()
 {
@@ -295,6 +280,7 @@ static void
 set_process_limits(int fds_throttle)
 {
   struct rlimit lim;
+  rlim_t maxfiles;
 
   // Set needed rlimits (root)
   ink_max_out_rlimit(RLIMIT_NOFILE, true, false);
@@ -305,32 +291,28 @@ set_process_limits(int fds_throttle)
   ink_max_out_rlimit(RLIMIT_RSS, true, true);
 #endif
 
-#if defined(linux)
-  float file_max_pct = 0.9;
-  FILE *fd;
+  maxfiles = ink_get_max_files();
+  if (maxfiles != RLIM_INFINITY) {
+    float file_max_pct = 0.9;
 
-  if ((fd = fopen("/proc/sys/fs/file-max","r"))) {
-    ATS_UNUSED_RETURN(fscanf(fd, "%lu", &lim.rlim_max));
-    fclose(fd);
     REC_ReadConfigFloat(file_max_pct, "proxy.config.system.file_max_pct");
-    lim.rlim_cur = lim.rlim_max = static_cast<rlim_t>(lim.rlim_max * file_max_pct);
-    if (!setrlimit(RLIMIT_NOFILE, &lim) && !getrlimit(RLIMIT_NOFILE, &lim)) {
+    if (file_max_pct > 1.0) {
+      file_max_pct = 1.0;
+    }
+
+    lim.rlim_cur = lim.rlim_max = static_cast<rlim_t>(maxfiles * file_max_pct);
+    if (setrlimit(RLIMIT_NOFILE, &lim) == 0 && getrlimit(RLIMIT_NOFILE, &lim) == 0) {
       fds_limit = (int) lim.rlim_cur;
       syslog(LOG_NOTICE, "NOTE: RLIMIT_NOFILE(%d):cur(%d),max(%d)",RLIMIT_NOFILE, (int)lim.rlim_cur, (int)lim.rlim_max);
-    } else {
-      syslog(LOG_NOTICE, "NOTE: Unable to set RLIMIT_NOFILE(%d):cur(%d),max(%d)", RLIMIT_NOFILE, (int)lim.rlim_cur, (int)lim.rlim_max);
     }
-  } else {
-    syslog(LOG_NOTICE, "NOTE: Unable to open /proc/sys/fs/file-max");
   }
-#endif // linux
 
-  if (!getrlimit(RLIMIT_NOFILE, &lim)) {
+  if (getrlimit(RLIMIT_NOFILE, &lim) == 0) {
     if (fds_throttle > (int) (lim.rlim_cur + FD_THROTTLE_HEADROOM)) {
       lim.rlim_cur = (lim.rlim_max = (rlim_t) fds_throttle);
       if (!setrlimit(RLIMIT_NOFILE, &lim) && !getrlimit(RLIMIT_NOFILE, &lim)) {
         fds_limit = (int) lim.rlim_cur;
-	syslog(LOG_NOTICE, "NOTE: RLIMIT_NOFILE(%d):cur(%d),max(%d)",RLIMIT_NOFILE, (int)lim.rlim_cur, (int)lim.rlim_max);
+	      syslog(LOG_NOTICE, "NOTE: RLIMIT_NOFILE(%d):cur(%d),max(%d)",RLIMIT_NOFILE, (int)lim.rlim_cur, (int)lim.rlim_max);
       }
     }
   }
@@ -545,7 +527,7 @@ main(int argc, char **argv)
 
   set_process_limits(fds_throttle); // as root
   runAsUser(userToRunAs);
-  setup_coredump();
+  EnableCoreFile(true);
   check_lockfile();
 
   url_init();
@@ -595,17 +577,18 @@ main(int argc, char **argv)
     char sys_var[] = "proxy.config.syslog_facility";
     char *facility_str = NULL;
     int facility_int;
+
     facility_str = REC_readString(sys_var, &found);
     ink_assert(found);
 
     if (!found) {
-      mgmt_elog(0, "Could not read %s.  Defaulting to DAEMON\n", sys_var);
+      mgmt_elog(0, "Could not read %s.  Defaulting to LOG_DAEMON\n", sys_var);
       facility_int = LOG_DAEMON;
     } else {
       facility_int = facility_string_to_int(facility_str);
       ats_free(facility_str);
       if (facility_int < 0) {
-        mgmt_elog(0, "Bad syslog facility specified.  Defaulting to DAEMON\n");
+        mgmt_elog(0, "Bad syslog facility specified.  Defaulting to LOG_DAEMON\n");
         facility_int = LOG_DAEMON;
       }
     }

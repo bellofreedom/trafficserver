@@ -37,6 +37,10 @@ SUBDIRS = \
  url_sig \
  xdebug
 
+if HAS_MYSQL
+  SUBDIRS += mysql_remap
+endif
+
 if BUILD_LUAJIT
   SUBDIRS += ts_lua
 endif

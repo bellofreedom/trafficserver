@@ -1540,7 +1540,7 @@ HttpSM::handle_api_return()
       if (unlikely(t_state.did_upgrade_succeed)) {
        // We've sucessfully handled the upgrade, let's now setup
        // a blind tunnel.
-       if(t_state.is_websocket) {
+       if (t_state.is_websocket) {
          HTTP_INCREMENT_DYN_STAT(http_websocket_current_active_client_connections_stat);
        }
 
@@ -6539,10 +6539,29 @@ HttpSM::kill_this()
     ink_release_assert(vc_table.is_table_clear() == true);
     ink_release_assert(tunnel.is_tunnel_active() == false);
 
+    HTTP_SM_SET_DEFAULT_HANDLER(NULL);
+
     if (t_state.http_config_param->enable_http_stats)
       update_stats();
 
-    HTTP_SM_SET_DEFAULT_HANDLER(NULL);
+    if (!t_state.cop_test_page || t_state.http_config_param->record_cop_page) {
+      //////////////
+      // Log Data //
+      //////////////
+      DebugSM("http_seq", "[HttpSM::update_stats] Logging transaction");
+      if (Log::transaction_logging_enabled() && t_state.api_info.logging_enabled) {
+        LogAccessHttp accessor(this);
+
+        int ret = Log::access(&accessor);
+
+        if (ret & Log::FULL) {
+          DebugSM("http", "[update_stats] Logging system indicates FULL.");
+        }
+        if (ret & Log::FAIL) {
+          Log::error("failed to log transaction for at least one log object");
+        }
+      }
+    }
 
     if (redirect_url != NULL) {
       ats_free((void*)redirect_url);
@@ -6570,23 +6589,6 @@ HttpSM::update_stats()
   if (t_state.cop_test_page && !t_state.http_config_param->record_cop_page) {
     DebugSM("http_seq", "Skipping cop heartbeat logging & stats due to config");
     return;
-  }
-
-  //////////////
-  // Log Data //
-  //////////////
-  DebugSM("http_seq", "[HttpSM::update_stats] Logging transaction");
-  if (Log::transaction_logging_enabled() && t_state.api_info.logging_enabled) {
-    LogAccessHttp accessor(this);
-
-    int ret = Log::access(&accessor);
-
-    if (ret & Log::FULL) {
-      DebugSM("http", "[update_stats] Logging system indicates FULL.");
-    }
-    if (ret & Log::FAIL) {
-      Log::error("failed to log transaction for at least one log object");
-    }
   }
 
   if (is_action_tag_set("bad_length_state_dump")) {
@@ -7419,6 +7421,36 @@ HttpSM::redirect_request(const char *redirect_url, const int redirect_len)
     return;
   }
 
+  bool valid_origHost = true;
+  int origHost_len, origMethod_len;
+  char origHost[MAXDNAME];
+  char origMethod[255];
+  int origPort = 80;
+
+  if (t_state.hdr_info.server_request.valid()) {
+    char* tmpOrigHost;
+
+    origPort = t_state.hdr_info.server_request.port_get();
+    tmpOrigHost = (char *) t_state.hdr_info.server_request.value_get(MIME_FIELD_HOST, MIME_LEN_HOST, &origHost_len);
+
+    if (tmpOrigHost) {
+      memcpy(origHost, tmpOrigHost, origHost_len);
+      origHost[origHost_len] = '\0';
+    } else {
+      valid_origHost = false;
+    }
+
+    char *tmpOrigMethod = (char *) t_state.hdr_info.server_request.method_get(&origMethod_len);
+    if (tmpOrigMethod) {
+      memcpy(origMethod, tmpOrigMethod, origMethod_len);
+    } else {
+      valid_origHost = false;
+    }
+  } else {
+    DebugSM("http_redir_error", "t_state.hdr_info.server_request not valid");
+    valid_origHost = false;
+  }
+
   t_state.redirect_info.redirect_in_process = true;
 
   // set the passed in location url and parse it
@@ -7447,28 +7479,6 @@ HttpSM::redirect_request(const char *redirect_url, const int redirect_len)
     // XXX - doing a destroy() for now, we can do a fileds_clear() if we have performance issue
     t_state.hdr_info.client_response.destroy();
   }
-
-
-  bool valid_origHost = true;
-  int origHost_len, origMethod_len;
-  char* tmpOrigHost = (char *) t_state.hdr_info.server_request.value_get(MIME_FIELD_HOST, MIME_LEN_HOST, &origHost_len);
-  char origHost[origHost_len + 1];
-
-  if (tmpOrigHost)
-    memcpy(origHost, tmpOrigHost, origHost_len);
-  else
-    valid_origHost = false;
-
-  origHost[origHost_len] = '\0';
-  int origPort = t_state.hdr_info.server_request.port_get();
-
-  char *tmpOrigMethod = (char *) t_state.hdr_info.server_request.method_get(&origMethod_len);
-  char origMethod[origMethod_len + 1];
-
-  if (tmpOrigMethod)
-    memcpy(origMethod, tmpOrigMethod, origMethod_len);
-  else
-    valid_origHost = false;
 
   int scheme = t_state.next_hop_scheme;
   int scheme_len = hdrtoken_index_to_length(scheme);
@@ -7536,9 +7546,11 @@ HttpSM::redirect_request(const char *redirect_url, const int redirect_len)
       // the client request didn't have a host, so use the current origin host
       if (valid_origHost)
       {
+        char * saveptr = NULL;
+
         // the client request didn't have a host, so use the current origin host
         DebugSM("http_redirect", "[HttpSM::redirect_request] keeping client request host %s://%s", next_hop_scheme, origHost);
-        char* origHost1 = strtok(origHost, ":");
+        char* origHost1 = strtok_r(origHost, ":", &saveptr);
         origHost_len = strlen(origHost1);
         int origHostPort_len = origHost_len;
         char buf[origHostPort_len + 7];

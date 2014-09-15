@@ -1,5 +1,3 @@
-#!/bin/sh
-#
 #  Licensed to the Apache Software Foundation (ASF) under one
 #  or more contributor license agreements.  See the NOTICE file
 #  distributed with this work for additional information
@@ -16,24 +14,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# This does intentionally not run the regressions, it's primarily a "build" test
+include $(top_srcdir)/build/plugins.mk
 
-# Test if we should enable CPPAPI (only 5.0 and later for now)
-enable_cppapi="--enable-cppapi"
-test "${JOB_NAME#*-4.2.x}" != "${JOB_NAME}" && enable_cppapi=""
-
-cd "${WORKSPACE}/src"
-
-autoreconf -fi
-./configure \
-    --enable-ccache \
-    --enable-werror \
-    --enable-experimental-plugins \
-    ${enable_cppapi} \
-    --enable-example-plugins \
-    --enable-test-tools \
-    CORES=2
-
-${ATS_MAKE} -j5 V=1
-${ATS_MAKE} check
-${ATS_MAKE} clean
+pkglib_LTLIBRARIES = mysql_remap.la
+mysql_remap_la_SOURCES = mysql_remap.cc lib/dictionary.c lib/iniparser.c
+mysql_remap_la_LDFLAGS = $(TS_PLUGIN_LDFLAGS) $(LIB_MYSQLCLIENT)

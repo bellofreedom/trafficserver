@@ -1523,6 +1523,7 @@ AC_SUBST(ifaddrsh)
 AC_SUBST(readline_readlineh)
 
 TS_FLAG_HEADERS([sys/statfs.h sys/statvfs.h sys/disk.h sys/disklabel.h])
+TS_FLAG_HEADERS([linux/hdreg.h linux/fs.h linux/major.h])
 
 TS_FLAG_HEADERS([sys/sysctl.h], [], [],
                  [[#ifdef HAVE_SYS_PARAM_H
@@ -1867,7 +1868,6 @@ AC_CONFIG_FILES([
   cmd/traffic_line/Makefile
   cmd/traffic_manager/Makefile
   cmd/traffic_top/Makefile
-  doc/Doxyfile
   doc/Makefile
   example/Makefile
   iocore/Makefile
@@ -1927,8 +1927,15 @@ AC_CONFIG_FILES([
   tools/tsxs
 ])
 
-AS_IF([test "x$enable_experimental_plugins" = xyes], [
+
+TS_FLAG_HEADERS([mysql/mysql.h], [has_mysql=1],[has_mysql=0])
+AC_CHECK_LIB([mysqlclient],[mysql_info],[AC_SUBST([LIB_MYSQLCLIENT],["-lmysqlclient"])],[has_mysql=0])
+AC_SUBST(has_mysql)
+AM_CONDITIONAL([HAS_MYSQL], [ test "x${has_mysql}" = "x1" ])
+
+AS_IF([test "x$enable_experimental_plugins" = xyes], [  
   AC_CONFIG_FILES([
+    plugins/experimental/mysql_remap/Makefile
     plugins/experimental/Makefile
     plugins/experimental/authproxy/Makefile
     plugins/experimental/background_fetch/Makefile

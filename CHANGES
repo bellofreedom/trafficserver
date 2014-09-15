@@ -1,6 +1,38 @@
                                                          -*- coding: utf-8 -*-
 Changes with Apache Traffic Server 5.2.0
 
+  *) [TS-3070] Make span configuration work consistently across platforms.
+
+  *) [TS-3076] Fix minor strtok_r errors.
+
+  *) [TS-2938] fix core dump in 307 redirect follow handling
+
+  *) [TS-3035] fix duplicate logging on error transactions
+
+  *) [TS-2955] support variable expansion in set-redirect operator for header_rewrite
+
+  *) [TS-3023] Support space separated values in inline plugin parameters in remap rules
+
+  *) [TS-3051] Fix libaio error handling.
+
+  *) [TS-3071] Optionally emit JSON numbers in stats_over_http.
+   Thanks to Saltuk Alakus <saltukalakus@gmail.com>
+
+  *) [TS-3069] Add mysql_remap to autoconf
+
+  *) [TS-3066] Fix various build issues for OmniOS, broken since 5.0.x.
+
+  *) [TS-407] Cleanup the syslog facility setup for traffic_server.
+
+  *) [TS-3049] - Enhance FetchSM to handle response with "Connection:Close" header
+     and limit the response header/body duplication to non-streaming scenarios for backward
+     compatibility with TSFetchUrl()
+
+  *) [TS-3039] Plug SSL memory leaks in OCSP stapling support.
+
+  *) [TS-2832] docs: Add links from an API description to the source
+   code for that object
+
   *) [TS-3020] Blind Tunnel fake request URL is IPv4 only.
    Author: Patrick McGleenon <Patrick.McGleenon@openwave.com>
 
@@ -397,7 +429,8 @@ Changes with Apache Traffic Server 5.0.0
    accommodate bit-masks. Also changed TSRecordType enums to hexidecimal, as
    this is easier to read for bit arguments.
 
-  *) [TS-2797] Build all manual pages in the doc/reference/api directory.
+  *) [TS-2797] docs: Build all manual pages in the doc/reference/api
+   directory.
 
   *) [TS-2733] Do not build the old SPDY plugin.
 
@@ -728,8 +761,8 @@ Changes with Apache Traffic Server 5.0.0
 
   *) [TS-2556] Fix ink_hrtime_diff_msec.
 
-  *) [TS-2553] Fix a segfault in the Metalink plugin reported by Faysal Banna
-   and preserve the Content-Length header
+  *) [TS-2553] Metalink: Fix a segfault reported by Faysal Banna and
+   preserve the Content-Length header
    Author: Jack Bates <jack@nottheoilrig.com>
 
   *) [TS-2195] Remove the (deprecated) TSHttpTxnCacheLookupSkip API.
@@ -1602,7 +1635,7 @@ Changes with Apache Traffic Server 3.3.3 (never released)
 
   *) [TS-1925] Remove obsolete MMH hash API.
 
-  *) [TS-1924] Add Metalink plugin documentation.
+  *) [TS-1924] Metalink: Add plugin documentation.
     Author: Jack Bates <jack@nottheoilrig.com>
 
   *) [TS-1913] Fix memory issue caused by resolve_logfield_string()
